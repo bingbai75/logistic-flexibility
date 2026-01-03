@@ -20,12 +20,12 @@ The materials to replicate the results in the paper include:
 ## 1. SYNTHETIC data: 
 ### Reduced form evidence: `Bai2025_agg_synthetic_data.rda`.  
 ### Structural estimation & counterfactual analyses: 
-a. `customer_data.pickle`
-b. `customer_all.csv`
-c. `customer_info_loc.csv`
-d. `gaussian_params.csv`
-e. `prob_slot.csv`
-f. `station_coordinates_perturbed.csv`
+* `customer_data.pickle`
+* `customer_all.csv`
+* `customer_info_loc.csv`
+* `gaussian_params.csv`
+* `prob_slot.csv`
+* `station_coordinates_perturbed.csv`
 The actual dataset used in the study is protected under NDA and cannot be shared publicly. To facilitate replication, we provide a synthetic dataset designed to mimic key statistical properties of the original data. The provided replication code will reproduce all main tables in the paper, but the exact numerical outputs may differ due to the use of synthetic data.
 
 
