@@ -1,0 +1,312 @@
+---
+title: "Bai2025-Empirical Evidence"
+author: "Bing Bai"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(lfe)
+library(stargazer)
+library(ggplot2)
+```
+
+
+#### Load Data ####
+```{r}
+load("Data_simulated/Bai2025_agg_synthetic_data.rda")
+```
+
+#### Table 1: Note that the primary dataset is aggregated at the location-day level. The package-level attributes reported in Table 1 are directly sourced from the platform’s proprietary database.
+
+#### Define Treatment Group and Post-Period Indicators ####
+```{r}
+# Binary indicator for whether location i is within 0.4 km of a newly opened station (treated group)
+data$Station <- ifelse(data$distance <= 0.4, 1, 0)
+
+# Binary indicator for whether the observation occurs after the station opening (post-treatment period)
+data$After <- ifelse(data$Days >= 0, 1, 0)
+
+```
+
+
+### Table 2: Impact of Pick-up Stations ###
+```{r warning=FALSE}
+# Estimate models
+est_sum     <- felm(GMV ~ After + Station * After | town_id + year_week + week_day, data)
+est_avg     <- felm(Items_value ~ After + Station * After | town_id + year_week + week_day, data)
+est_num     <- felm(Orders ~ After + Station * After | town_id + year_week + week_day, data)
+est_newcus  <- felm(Newcomers ~ After + Station * After | town_id + year_week + week_day, data)
+
+# Averages of DVs
+avg_GMV         <- mean(data$GMV)
+avg_Items_value <- mean(data$Items_value, na.rm=TRUE)
+avg_Orders      <- mean(data$Orders)
+avg_Newcomers   <- mean(data$Newcomers)
+
+# Extract interaction coefficients
+interact_sum     <- coef(est_sum)["After:Station"]
+interact_avg     <- coef(est_avg)["After:Station"]
+interact_num     <- coef(est_num)["After:Station"]
+interact_newcus  <- coef(est_newcus)["After:Station"]
+
+# Compute relative effect sizes
+rel_eff_sum     <- round(100 * interact_sum / avg_GMV, 1)
+rel_eff_avg     <- round(100 * interact_avg / avg_Items_value, 1)
+rel_eff_num     <- round(100 * interact_num / avg_Orders, 1)
+rel_eff_newcus  <- round(100 * interact_newcus / avg_Newcomers, 1)
+
+# Create custom add.lines for extra rows
+add_lines <- list(
+  c("Relative Effect Size", 
+    paste0(rel_eff_sum, "\\%"), 
+    paste0(rel_eff_avg, "\\%"), 
+    paste0(rel_eff_num, "\\%"), 
+    paste0(rel_eff_newcus, "\\%")),
+  c("Time fixed effects", "Yes", "Yes", "Yes", "Yes"),
+  c("Area fixed effects", "Yes", "Yes", "Yes", "Yes")
+)
+
+# Format average note dynamically
+note_avg <- paste0(
+  "Note: Average of \\textit{GMV} was ", round(avg_GMV, 3), 
+  ", average of \\textit{Items value} was ", round(avg_Items_value, 3), 
+  ", average of \\textit{Orders} was ", round(avg_Orders, 3), 
+  ", average of \\textit{Newcomers} was ", round(avg_Newcomers, 3), "."
+)
+
+# Generate output for Table 2
+stargazer(est_sum, est_avg, est_num, est_newcus,
+  star.cutoffs = c(0.05, 0.01, 0.001),
+  type = "text",
+  no.space = TRUE,
+  keep = c("After", "Station", "After:Station"),
+  keep.stat = "n",
+  column.labels = c("GMV", "Items value", "Orders", "Newcomers"),
+  dep.var.labels.include = FALSE,
+  title = "Table 2: Impact of Pick-up Stations",
+  label = "main_table",
+  table.placement = "H",
+  font.size = "scriptsize",
+  add.lines = add_lines,
+  notes = note_avg,
+  notes.align = "l"
+)
+```
+#### Parallel Trend Test ####
+```{r warning=FALSE}
+# Subset pre-treatment data
+data_prior <- filter(data, Days < 0)
+
+# Estimate models
+est_sum     <- felm(GMV ~ Days + Days * Station | town_id + year_week + week_day, data_prior)
+est_avg     <- felm(Items_value ~ Days + Days * Station | town_id + year_week + week_day, data_prior)
+est_num     <- felm(Orders ~ Days + Days * Station | town_id + year_week + week_day, data_prior)
+est_newcus  <- felm(Newcomers ~ Days + Days * Station | town_id + year_week + week_day, data_prior)
+
+# Averages of DVs (in the pre-period)
+avg_GMV         <- mean(data_prior$GMV)
+avg_Items_value <- mean(data_prior$Items_value, na.rm = TRUE)
+avg_Orders      <- mean(data_prior$Orders)
+avg_Newcomers   <- mean(data_prior$Newcomers)
+
+# Extract interaction coefficients
+interact_sum     <- coef(est_sum)["Days:Station"]
+interact_avg     <- coef(est_avg)["Days:Station"]
+interact_num     <- coef(est_num)["Days:Station"]
+interact_newcus  <- coef(est_newcus)["Days:Station"]
+
+# Compute relative effect sizes
+rel_eff_sum     <- round(100 * interact_sum / avg_GMV, 2)
+rel_eff_avg     <- round(100 * interact_avg / avg_Items_value, 2)
+rel_eff_num     <- round(100 * interact_num / avg_Orders, 2)
+rel_eff_newcus  <- ifelse(interact_newcus < 0.0001, "<0.01", round(100 * interact_newcus / avg_Newcomers, 2))
+
+# Create custom add.lines for extra rows
+add_lines <- list(
+  c("Relative Effect Size", 
+    paste0(rel_eff_sum, "\\%"), 
+    paste0(rel_eff_avg, "\\%"), 
+    paste0(rel_eff_num, "\\%"), 
+    paste0(rel_eff_newcus, "\\%")),
+  c("Time fixed effects", "Yes", "Yes", "Yes", "Yes"),
+  c("Area fixed effects", "Yes", "Yes", "Yes", "Yes")
+)
+
+# Format average note dynamically
+note_avg <- paste0(
+  "Note: Average of \\textit{GMV} was ", round(avg_GMV, 3), 
+  ", average of \\textit{Items value} was ", round(avg_Items_value, 3), 
+  ", average of \\textit{Orders} was ", round(avg_Orders, 3), 
+  ", average of \\textit{Newcomers} was ", round(avg_Newcomers, 3), "."
+)
+
+# Generate output for Table 11
+stargazer(est_sum, est_avg, est_num, est_newcus,
+  star.cutoffs = c(0.05, 0.01, 0.001),
+  type = "text",
+  no.space = TRUE,
+  keep = c("Days", "Station", "Days:Station"),
+  keep.stat = "n",
+  column.labels = c("GMV", "Items value", "Orders", "Newcomers"),
+  dep.var.labels.include = FALSE,
+  title = "Parallel Trend Test",
+  label = "test_parallel",
+  table.placement = "H",
+  font.size = "scriptsize",
+  add.lines = add_lines,
+  notes = note_avg,
+  notes.align = "l"
+)
+
+```
+
+
+
+
+
+#### Robustness Check: GMV and Orders by Treatment Distance ####
+```{r warning=FALSE}
+# Define treatment distances to test
+treat_dists <- c(0.25, 0.3, 0.35, 0.4)
+gmv_models <- list()
+order_models <- list()
+
+# Loop through treatment distances
+for (d in treat_dists) {
+  data$Station <- ifelse(data$distance <= d, 1, 0)
+  
+  gmv_models[[as.character(d)]] <- felm(GMV ~ After + Station * After | town_id + year_week + week_day, data)
+  order_models[[as.character(d)]] <- felm(Orders ~ After + Station * After | town_id + year_week + week_day, data)
+}
+
+# Stargazer summary: GMV
+stargazer(gmv_models,
+          star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+          type = "text",
+          no.space = TRUE,
+          keep = c("After", "After:Station"),
+          keep.stat = "n",
+          column.labels = paste0(treat_dists * 1000, "m"),
+          title = "Robustness of GMV Estimates by Treatment Distance")
+
+# Stargazer summary: Orders
+stargazer(order_models,
+          star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+          type = "text",
+          no.space = TRUE,
+          keep = c("After", "After:Station"),
+          keep.stat = "n",
+          column.labels = paste0(treat_dists * 1000, "m"),
+          title = "Robustness of Order Estimates by Treatment Distance")
+
+```
+
+#### Robustness Check: GMV and Orders by Total Observation Distance ####
+```{r warning=FALSE}
+obs_dists <- c(0.65, 0.7, 0.75, 0.8)
+gmv_obs_models <- list()
+order_obs_models <- list()
+
+for (d in obs_dists) {
+  data_obs <- filter(data, distance <= d)
+  
+  gmv_obs_models[[as.character(d)]] <- felm(GMV ~ After + Station * After | town_id + year_week + week_day, data_obs)
+  order_obs_models[[as.character(d)]] <- felm(Orders ~ After + Station * After | town_id + year_week + week_day, data_obs)
+}
+
+# Stargazer summary: GMV
+stargazer(gmv_obs_models,
+          star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+          type = "text",
+          no.space = TRUE,
+          keep = c("After", "After:Station"),
+          keep.stat = "n",
+          column.labels = paste0(obs_dists * 1000, "m"),
+          title = "Robustness of GMV Estimates by Total Observation Distance")
+
+# Stargazer summary: Orders
+stargazer(order_obs_models,
+          star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+          type = "text",
+          no.space = TRUE,
+          keep = c("After", "After:Station"),
+          keep.stat = "n",
+          column.labels = paste0(obs_dists * 1000, "m"),
+          title = "Robustness of Order Estimates by Total Observation Distance")
+```
+
+
+### Figure 2(a) Robustness of Estimates on GMV-- Treatment Distance ###
+```{r}
+distance <- treat_dists
+gmv_est <- sapply(gmv_models, function(m) coef(m)["After:Station"])
+gmv_std <- sapply(gmv_models, function(m) sqrt(diag(vcov(m)))["After:Station"])
+
+qplot(distance, gmv_est) +
+  geom_errorbar(aes(x = distance, ymin = gmv_est - 1.96 * gmv_std, ymax = gmv_est + 1.96 * gmv_std), width = 0.02) +
+  ylim(c(-100, 300)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 1) +
+  scale_x_continuous(breaks = seq(0.25, 0.4, 0.05)) +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(x = "Treatment Distance (km)", y = "Estimate of GMV")
+
+```
+
+### Figure 2(b) Robustness of Estimates on GMV-- Total Observation Distance ###
+```{r}
+distance <- obs_dists
+gmv_est <- sapply(gmv_obs_models, function(m) coef(m)["After:Station"])
+gmv_std <- sapply(gmv_obs_models, function(m) sqrt(diag(vcov(m)))["After:Station"])
+
+qplot(distance, gmv_est) +
+  geom_errorbar(aes(x = distance, ymin = gmv_est - 1.96 * gmv_std, ymax = gmv_est + 1.96 * gmv_std), width = 0.02) +
+  ylim(c(-100, 300)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 1) +
+  scale_x_continuous(breaks = seq(0.65, 0.8, 0.05)) +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(x = "Total Distance (km)", y = "Estimate of GMV")
+```
+
+### Figure 3(a) Robustness of Estimates on Number of Orders-- Treatment Distance ###
+```{r}
+distance <- treat_dists
+orders_est <- sapply(order_models, function(m) coef(m)["After:Station"])
+orders_std <- sapply(order_models, function(m) sqrt(diag(vcov(m)))["After:Station"])
+
+qplot(distance, orders_est) +
+  geom_errorbar(aes(x = distance, ymin = orders_est - 1.96 * orders_std, ymax = orders_est + 1.96 * orders_std), width = 0.02) +
+  ylim(c(-0.6, 2)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 1) +
+  scale_x_continuous(breaks = seq(0.25, 0.4, 0.05)) +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(x = "Treatment Distance (km)", y = "Estimate of Orders")
+
+```
+
+### Figure 3(b) Robustness of Estimates on GMV-- Total Observation Distance ###
+```{r}
+distance <- obs_dists
+orders_est <- sapply(order_obs_models, function(m) coef(m)["After:Station"])
+orders_std <- sapply(order_obs_models, function(m) sqrt(diag(vcov(m)))["After:Station"])
+
+qplot(distance, orders_est) +
+  geom_errorbar(aes(x = distance, ymin = orders_est - 1.96 * orders_std, ymax = orders_est + 1.96 * orders_std), width = 0.02) +
+  ylim(c(-0.6, 2)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 1) +
+  scale_x_continuous(breaks = seq(0.65, 0.8, 0.05)) +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(x = "Total Distance (km)", y = "Estimate of Orders")
+```
+
+
+
+

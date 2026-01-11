@@ -1,0 +1,16 @@
+numpy==1.26.4
+mpmath==1.3.0
+pandas==2.2.1
+tqdm==4.66.4
+scipy==1.13.0
+matplotlib==3.9.0
+seaborn==0.13.2
+scikit-learn==1.4.2
+imbalanced-learn==0.12.2
+multiprocess==0.70.16
+numba==0.59.1
+torch==2.3.0
+# PyTorch: For CPU-only, use the line above
+# For GPU support, install the CUDA version instead:
+# pip install torch==2.3.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+# (Replace cu121 with your CUDA version: cu118, cu121, cu124, etc.)
