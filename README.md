@@ -1,6 +1,6 @@
 # Replication Data and Code for "The Value of Logistic Flexibility in E-commerce"
 
-## Prerequisite 
+## Prerequisite
 Install Anaconda and create environment as follows:
 ```bash
 conda create -n logistic_flexibility python==3.11.5 -y
