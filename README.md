@@ -1,5 +1,14 @@
 # Replication Data and Code for "The Value of Logistic Flexibility in E-commerce"
 
+## Getting start
+This repo contains large files managed by Git LFS. **Please do not use GitHub's "Download ZIP" option**, as it will not download the actual data files. Instead, clone it using git:
+
+```
+git lfs install
+git clone https://github.com/bingbai75/logistic-flexibility.git
+```
+
+
 ## Prerequisite
 Install Anaconda and create environment as follows:
 ```bash
