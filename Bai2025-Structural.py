@@ -123,9 +123,23 @@ class OptimizeLatentModel:
             self.customer_data_B = self.customer_data.loc[self.customer_data['n_station']<=0,]
             self.customer_data_A.reset_index(drop=True, inplace=True)
             self.customer_data_B.reset_index(drop=True, inplace=True)
+            self._clear_gpu_cache()
         
         self._matrix_setup()
         
+    
+    def _optimization_log(self):
+        result_record = self.result['x'].tolist()
+        
+        if self.experiment == 'vanilla':
+            if not hasattr(self, 'vanilla_results'):
+                self.vanilla_results = []
+            self.vanilla_results.append(result_record)
+            
+        elif self.experiment == 'bootstrap':
+            if not hasattr(self, 'bootstrap_results'):
+                self.bootstrap_results = []
+            self.bootstrap_results.append(result_record)
         
 
     
@@ -157,6 +171,7 @@ class OptimizeLatentModel:
                                        'xatol': self.args.xatol_num,
                                        'fatol': self.args.fatol_num})
         self.time_record = (time.time() - start_time) / 3600
+        self._optimization_log()
         return self.result
     
        
@@ -1061,9 +1076,11 @@ class OptimizeLatentModel:
         
         self.customer_info_loc['predict_type'] = pl_model.predict(X_features)
         proba = pl_model.predict_proba(X_features)
-        self.customer_info_loc['p_type1'] = proba[:, 0]
-        self.customer_info_loc['p_type2'] = proba[:, 1]
-        self.customer_info_loc['p_type3'] = proba[:, 2]
+        for cls in [1, 2, 3]:
+            if cls in pl_model.classes_:
+                self.customer_info_loc[f'p_type{cls}'] = proba[:, list(pl_model.classes_).index(cls)]
+            else:
+                self.customer_info_loc[f'p_type{cls}'] = 0.0
         
         # Calculate type probabilities
         n_total = len(self.customer_info_loc)
@@ -1119,7 +1136,7 @@ class OptimizeLatentModel:
         
         self.dis_store = np.zeros([self.n_grid, self.n_grid])
         print('Initializing distance matrix...')
-        print(f'Computing distance matrix. Expected runtime: > 10 minutes...')
+        print(f'Computing distance matrix. Expected runtime: > 1 minutes...')
         
         lat_store = self.cusgrid_type['lat_store'].values
         lng_store = self.cusgrid_type['lng_store'].values
@@ -2604,9 +2621,7 @@ if __name__ == '__main__':
 
     ############# Display structural estimation results ##################
     # Load bootstrap results and calculate standard errors
-    bootstrap_results_path = join(projdir, 'Results', 'bootstrap', 'bootstrap_results_full.csv')
-    bootstrap_results = pd.read_csv(bootstrap_results_path, sep=',', header=0).values
-    bootstrap_params = bootstrap_results[:, :23].astype(float)  # Extract parameter estimates
+    bootstrap_params = np.array(self.bootstrap_results)[:, :23].astype(float)  # Extract parameter estimates
     std_final_3set = np.std(bootstrap_params, axis=0)
     
     # Print estimation results table
@@ -2684,6 +2699,14 @@ if __name__ == '__main__':
     ], columns=['Before', 'After'], index=['Daily consumer welfare', '95% group daily welfare', '75% group daily welfare'])
     table_5_panel_A_3["Improvement"] = table_5_panel_A_3["After"] - table_5_panel_A_3["Before"]
     print(table_5_panel_A_3.to_latex(index=True, float_format='%.2f'))
+
+
+    #### Figure 4(a)-4(d) Picking Better Locations of Pick-up Stations ####
+    print('\nComputing Figure 4(a)-4(d) (picking better locations of pick-up stations)...')
+    location_figures(self) 
+    print('Finish Figure 4(a)-4(d)...')
+
+    
     
     #### Table 5, Panel B: 1km Effective Distance ####
     print('\nComputing Table 5, Panel B (1km effective distance). Expected runtime: > 1 hour...')
@@ -2723,10 +2746,6 @@ if __name__ == '__main__':
     table_5_panel_B_3["Improvement"] = table_5_panel_B_3["After"] - table_5_panel_B_3["Before"]
     print(table_5_panel_B_3.to_latex(index=True, float_format='%.2f'))
 
-    #### Figure 4(a)-4(d) Picking Better Locations of Pick-up Stations ####
-    print('\nComputing Figure 4(a)-4(d) (picking better locations of pick-up stations)...')
-    location_figures(self) 
-    print('Finish Figure 4(a)-4(d)...')
     
 
     ############# Delivery windows counterfactual analysis ##################
